@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PAING AMPLIFIER</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0c;color:#d1d5db;font-family:Oswald,sans-serif;min-height:100vh;display:flex;flex-direction:column}
+.header{padding:24px 16px;text-align:center;border-bottom:1px solid #2a2d34}
+.logo{font-size:38px;font-weight:700;font-style:italic;letter-spacing:.04em;color:#fff;text-shadow:0 0 20px rgba(0,230,118,.4)}
+.tagline{font-size:12px;letter-spacing:.3em;color:#9ca3af;margin-top:6px}
+.container{flex:1;max-width:980px;margin:0 auto;padding:20px 16px;width:100%}
+.tabs{display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid #2a2d34}
+.tab{flex:1;padding:14px;background:none;border:none;color:#9ca3af;font-family:Oswald,sans-serif;font-size:16px;letter-spacing:.1em;cursor:pointer;border-bottom:3px solid transparent;transition:.2s}
+.tab.active{color:#00e676;border-bottom-color:#00e676}
+.tab:hover{color:#d1d5db}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.card{background:linear-gradient(180deg,#1b1d21,#121417);border:1px solid #2a2d34;border-radius:6px;padding:18px;box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 4px 12px rgba(0,0,0,.5);transition:.2s;cursor:pointer;position:relative}
+.card:hover{transform:translateY(-2px);border-color:#00e676;box-shadow:0 6px 20px rgba(0,230,118,.15)}
+.card.premium:hover{border-color:#ffb700;box-shadow:0 6px 20px rgba(255,183,0,.15)}
+.card-title{font-size:18px;font-weight:600;color:#fff;margin-bottom:6px}
+.card-desc{font-size:13px;color:#9ca3af;line-height:1.5;margin-bottom:12px;min-height:38px}
+.badge{display:inline-block;padding:3px 10px;border-radius:3px;font-size:11px;letter-spacing:.1em;font-weight:600}
+.badge.free{background:rgba(0,230,118,.15);color:#00e676;border:1px solid #00e676}
+.badge.premium{background:rgba(255,183,0,.15);color:#ffb700;border:1px solid #ffb700}
+.lock{position:absolute;top:14px;right:14px;font-size:20px;opacity:.8}
+.empty{text-align:center;padding:60px 20px;color:#6b7280;font-size:14px}
+.footer{padding:20px;text-align:center;color:#4b5563;font-size:12px;border-top:1px solid #2a2d34}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:100;align-items:center;justify-content:center;padding:20px}
+.modal.show{display:flex}
+.modal-box{background:#121417;border:1px solid #2a2d34;border-radius:8px;padding:28px;max-width:400px;width:100%;text-align:center}
+.modal-title{font-size:22px;color:#ffb700;margin-bottom:12px}
+.modal-text{color:#9ca3af;font-size:14px;line-height:1.6;margin-bottom:20px}
+.modal-btn{background:#2a2d33;border:1px solid #3a3e46;color:#d1d5db;padding:10px 24px;font-family:Oswald,sans-serif;font-size:14px;letter-spacing:.1em;border-radius:4px;cursor:pointer}
+.modal-btn:hover{background:#3a3e46}
+.loading{text-align:center;padding:60px;color:#6b7280}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">PAING AMPLIFIER</div>
+  <div class="tagline">PROFESSIONAL AUDIO SIMULATION</div>
+</div>
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" data-tab="free">FREE</button>
+    <button class="tab" data-tab="premium">PREMIUM</button>
+  </div>
+  <div id="list" class="grid"><div class="loading">Loading...</div></div>
+</div>
+<div class="footer">© 2026 PAING AMPLIFIER</div>
+
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <div class="modal-title">🔒 PREMIUM ONLY</div>
+    <div class="modal-text">ဒီ simulator က Premium အဖွဲ့ဝင်တွေအတွက်ပါ။<br>သုံးလို့ မရပါဘူး။</div>
+    <button class="modal-btn" onclick="closeModal()">ပိတ်</button>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+let currentTab = 'free';
+let data = { free: [], premium: [] };
+
+async function loadData() {
+  try {
+    const [freeRes, premiumRes] = await Promise.all([
+      fetch('data/free.json').then(r => r.json()).catch(() => []),
+      fetch('data/premium.json').then(r => r.json()).catch(() => [])
+    ]);
+    data.free = freeRes || [];
+    data.premium = premiumRes || [];
+    render();
+  } catch(e) {
+    document.getElementById('list').innerHTML = '<div class="empty">Data ဖတ်လို့ မရပါ</div>';
+  }
+}
+
+function render() {
+  const list = document.getElementById('list');
+  const items = data[currentTab] || [];
+  if (!items.length) {
+    list.innerHTML = '<div class="empty">ဒီအပိုင်းမှာ simulator မရှိသေးပါ</div>';
+    return;
+  }
+  list.innerHTML = items.map(item => {
+    const isPremium = currentTab === 'premium';
+    return `
+      <div class="card ${isPremium ? 'premium' : ''}" onclick="openSim('${item.id}', ${isPremium})">
+        ${isPremium ? '<div class="lock">🔒</div>' : ''}
+        <div class="card-title">${item.name}</div>
+        <div class="card-desc">${item.description || 'No description'}</div>
+        <span class="badge ${isPremium ? 'premium' : 'free'}">${isPremium ? 'PREMIUM' : 'FREE'}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function openSim(id, isPremium) {
+  if (isPremium) {
+    document.getElementById('modal').classList.add('show');
+    return;
+  }
+  window.location.href = 'simulator.html?id=' + encodeURIComponent(id);
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentTab = tab.dataset.tab;
+    render();
+  });
+});
+
+loadData();
+</script>
+</body>
+</html>
