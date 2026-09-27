@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PAING AMPLIFIER - Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0c;color:#d1d5db;font-family:Oswald,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.bar{padding:10px 14px;background:#121417;border-bottom:1px solid #2a2d34;display:flex;align-items:center;gap:12px}
+.back{background:#2a2d33;border:1px solid #3a3e46;color:#d1d5db;padding:8px 14px;font-family:Oswald,sans-serif;font-size:13px;letter-spacing:.08em;border-radius:3px;cursor:pointer;text-decoration:none}
+.back:hover{background:#3a3e46}
+.title{flex:1;font-size:15px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frame{flex:1;width:100%;border:none;background:#000}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#6b7280;gap:14px}
+</style>
+</head>
+<body>
+<div class="bar">
+  <a href="index.html" class="back">← BACK</a>
+  <div class="title" id="title">Loading...</div>
+</div>
+<iframe class="frame" id="frame" src="about:blank"></iframe>
+
+<script>
+async function load() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
+  if (!id) { showEmpty(); return; }
+  try {
+    const [free, premium] = await Promise.all([
+      fetch('data/free.json').then(r => r.json()).catch(() => []),
+      fetch('data/premium.json').then(r => r.json()).catch(() => [])
+    ]);
+    const all = [...(free||[]), ...(premium||[])];
+    const sim = all.find(s => s.id === id);
+    if (!sim) { showEmpty(); return; }
+    document.title = sim.name + ' - PAING AMPLIFIER';
+    document.getElementById('title').textContent = sim.name;
+    document.getElementById('frame').src = sim.file;
+  } catch(e) { showEmpty(); }
+}
+
+function showEmpty() {
+  document.getElementById('title').textContent = 'Not Found';
+  document.querySelector('.frame').style.display = 'none';
+  document.body.insertAdjacentHTML('beforeend', '<div class="empty"><div style="font-size:40px">⚠️</div><div>Simulator ရှာမတွေ့ပါ</div><a href="index.html" class="back">← ပြန်သွား</a></div>');
+}
+
+load();
+</script>
+</body>
+</html>
