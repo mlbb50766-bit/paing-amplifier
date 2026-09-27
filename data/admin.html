@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PAING AMPLIFIER - Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0c;color:#d1d5db;font-family:Oswald,sans-serif;min-height:100vh}
+.login{max-width:400px;margin:80px auto;padding:30px;background:#121417;border:1px solid #2a2d34;border-radius:8px}
+.login h1{text-align:center;color:#fff;font-size:26px;margin-bottom:6px}
+.login .sub{text-align:center;color:#9ca3af;font-size:13px;margin-bottom:24px;letter-spacing:.2em}
+input,select,textarea{width:100%;padding:12px;background:#050607;border:1px solid #2a2d34;border-radius:4px;color:#d1d5db;font-family:Oswald,sans-serif;font-size:14px;margin-bottom:12px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#00e676}
+.btn{width:100%;padding:14px;background:linear-gradient(180deg,#00e676,#00b85a);color:#000;border:none;border-radius:4px;font-family:Oswald,sans-serif;font-size:15px;font-weight:600;letter-spacing:.1em;cursor:pointer}
+.btn:hover{opacity:.9}
+.btn.secondary{background:#2a2d33;color:#d1d5db}
+.panel{max-width:900px;margin:20px auto;padding:20px}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid #2a2d34}
+.header h1{color:#fff;font-size:22px}
+.section{background:#121417;border:1px solid #2a2d34;border-radius:6px;padding:20px;margin-bottom:20px}
+.section h2{color:#00e676;font-size:16px;letter-spacing:.1em;margin-bottom:16px}
+.file-item{display:flex;justify-content:space-between;align-items:center;padding:12px;background:#0a0a0c;border:1px solid #2a2d34;border-radius:4px;margin-bottom:8px}
+.file-item .info{flex:1;min-width:0}
+.file-item .name{color:#fff;font-size:15px;margin-bottom:2px}
+.file-item .desc{color:#6b7280;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-item .tier{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;letter-spacing:.1em;margin-left:8px}
+.tier.free{background:rgba(0,230,118,.15);color:#00e676}
+.tier.premium{background:rgba(255,183,0,.15);color:#ffb700}
+.del{background:#c62828;color:#fff;border:none;padding:8px 14px;border-radius:4px;font-family:Oswald,sans-serif;font-size:12px;cursor:pointer;margin-left:10px}
+.status{padding:10px 14px;border-radius:4px;margin-bottom:12px;font-size:13px;display:none}
+.status.show{display:block}
+.status.ok{background:rgba(0,230,118,.15);color:#00e676;border:1px solid #00e676}
+.status.err{background:rgba(255,42,42,.15);color:#ff5555;border:1px solid #ff2a2a}
+.note{color:#6b7280;font-size:12px;margin-bottom:12px}
+</style>
+</head>
+<body>
+
+<div id="loginView" class="login">
+  <h1>PAING AMPLIFIER</h1>
+  <div class="sub">ADMIN PANEL</div>
+  <input type="password" id="pwd" placeholder="Password">
+  <button class="btn" onclick="doLogin()">LOGIN</button>
+</div>
+
+<div id="adminView" class="panel" style="display:none">
+  <div class="header">
+    <h1>⚙️ ADMIN PANEL</h1>
+    <button class="btn secondary" style="width:auto;padding:8px 16px" onclick="logout()">LOGOUT</button>
+  </div>
+
+  <div class="section">
+    <h2>➕ FILE UPLOAD</h2>
+    <div class="note">Simulator HTML file တင်ရန်</div>
+    <input type="text" id="simName" placeholder="Name (ဥပမာ: COMSOM RACK v2)">
+    <input type="text" id="simDesc" placeholder="Description">
+    <select id="simTier">
+      <option value="free">FREE</option>
+      <option value="premium">PREMIUM</option>
+    </select>
+    <input type="file" id="simFile" accept=".html,.htm">
+    <div id="uploadStatus" class="status"></div>
+    <button class="btn" onclick="uploadFile()">UPLOAD</button>
+  </div>
+
+  <div class="section">
+    <h2>📋 FILE LIST</h2>
+    <div id="fileList"></div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+const TOKEN_KEY = 'paing_gh_token';
+let token = localStorage.getItem(TOKEN_KEY) || '';
+
+function doLogin() {
+  const pwd = document.getElementById('pwd').value;
+  if (pwd === CONFIG.ADMIN_PASSWORD) {
+    if (!token) {
+      token = prompt('GitHub Token ထည့်ပါ (ghp_...):');
+      if (!token) { alert('Token မရှိရင် upload/delete လုပ်လို့ မရဘူး'); }
+      else { localStorage.setItem(TOKEN_KEY, token); }
+    }
+    document.getElementById('loginView').style.display = 'none';
+    document.getElementById('adminView').style.display = 'block';
+    loadList();
+  } else {
+    alert('Password မှားနေတယ်');
+  }
+}
+
+function logout() {
+  document.getElementById('loginView').style.display = 'block';
+  document.getElementById('adminView').style.display = 'none';
+  document.getElementById('pwd').value = '';
+}
+
+async function loadList() {
+  const list = document.getElementById('fileList');
+  list.innerHTML = '<div class="note">Loading...</div>';
+  try {
+    const [free, premium] = await Promise.all([
+      fetch('data/free.json?t=' + Date.now()).then(r => r.json()).catch(() => []),
+      fetch('data/premium.json?t=' + Date.now()).then(r => r.json()).catch(() => [])
+    ]);
+    let html = '';
+    (free||[]).forEach(s => html += renderItem(s, 'free'));
+    (premium||[]).forEach(s => html += renderItem(s, 'premium'));
+    list.innerHTML = html || '<div class="note">File မရှိသေးပါ</div>';
+  } catch(e) {
+    list.innerHTML = '<div class="note">ဖတ်လို့ မရပါ</div>';
+  }
+}
+
+function renderItem(s, tier) {
+  return `
+    <div class="file-item">
+      <div class="info">
+        <div class="name">${s.name}<span class="tier ${tier}">${tier.toUpperCase()}</span></div>
+        <div class="desc">${s.description || ''}</div>
+      </div>
+      <button class="del" onclick="deleteItem('${s.id}','${tier}')">DELETE</button>
+    </div>
+  `;
+}
+
+async function ghPut(path, content, message) {
+  const url = `https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}/contents/${path}`;
+  const body = {
+    message: message,
+    content: btoa(unescape(encodeURIComponent(content))),
+    branch: CONFIG.BRANCH
+  };
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error('GitHub API error: ' + res.status);
+  return res.json();
+}
+
+async function ghGetSha(path) {
+  const url = `https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}/contents/${path}?ref=${CONFIG.BRANCH}`;
+  const res = await fetch(url, { headers: { 'Authorization': 'token ' + token } });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.sha;
+}
+
+async function ghDelete(path, sha, message) {
+  const url = `https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}/contents/${path}`;
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, sha, branch: CONFIG.BRANCH })
+  });
+  if (!res.ok) throw new Error('Delete error: ' + res.status);
+  return res.json();
+}
+
+async function uploadFile() {
+  const status = document.getElementById('uploadStatus');
+  status.className = 'status';
+  if (!token) { showStatus('err', 'Token မရှိဘူး — logout ပြီး ပြန် login လုပ်'); return; }
+  const name = document.getElementById('simName').value.trim();
+  const desc = document.getElementById('simDesc').value.trim();
+  const tier = document.getElementById('simTier').value;
+  const fileInput = document.getElementById('simFile');
+  if (!name || !fileInput.files[0]) { showStatus('err', 'Name နဲ့ File ထည့်ပါ'); return; }
+
+  const file = fileInput.files[0];
+  if (!file.name.endsWith('.html') && !file.name.endsWith('.htm')) {
+    showStatus('err', 'HTML file ပဲ ရပါတယ်'); return;
+  }
+
+  showStatus('ok', 'Uploading... ခဏစောင့်');
+  try {
+    const content = await file.text();
+    const safeName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now() + '.html';
+    const filePath = 'files/' + safeName;
+
+    await ghPut(filePath, content, 'Upload: ' + name);
+
+    const listPath = 'data/' + tier + '.json';
+    const sha = await ghGetSha(listPath);
+    let list = [];
+    try {
+      const r = await fetch(`https://raw.githubusercontent.com/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}/${CONFIG.BRANCH}/${listPath}?t=` + Date.now());
+      list = await r.json();
+    } catch(e) { list = []; }
+
+    const id = tier + '-' + Date.now();
+    list.push({ id, name, description: desc, file: filePath });
+
+    const url = `https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}/contents/${listPath}`;
+    const body = {
+      message: 'Add: ' + name,
+      content: btoa(unescape(encodeURIComponent(JSON.stringify(list, null, 2)))),
+      branch: CONFIG.BRANCH
+    };
+    if (sha) body.sha = sha;
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error('JSON update failed');
+
+    showStatus('ok', '✅ Upload ပြီးပါပြီ — ၁ မိနစ်အတွင်း web မှာ ပေါ်လာမယ်');
+    document.getElementById('simName').value = '';
+    document.getElementById('simDesc').value = '';
+    fileInput.value = '';
+    loadList();
+  } catch(e) {
+    showStatus('err', '❌ Error: ' + e.message);
+  }
+}
+
+async function deleteItem(id, tier) {
+  if (!token) { alert('Token မရှိဘူး'); return; }
+  if (!confirm('ဒီ file ကို ဖျက်မှာ သေချာလား?')) return;
+  try {
+    const listPath = 'data/' + tier + '.json';
+    const sha = await ghGetSha(listPath);
+    if (!sha) { alert('List မတွေ့ဘူး'); return; }
+
+    const r = await fetch(`https://raw.githubusercontent.com/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}/${CONFIG.BRANCH}/${listPath}?t=` + Date.now());
+    let list = await r.json();
+    const item = list.find(s => s.id === id);
+    if (!item) { alert('Item မတွေ့ဘူး'); return; }
+
+    const fileSha = await ghGetSha(item.file);
+    if (fileSha) await ghDelete(item.file, fileSha, 'Delete file: ' + item.name);
+
+    list = list.filter(s => s.id !== id);
+    const url = `https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}/contents/${listPath}`;
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Delete: ' + item.name,
+        content: btoa(unescape(encodeURIComponent(JSON.stringify(list, null, 2)))),
+        sha: sha,
+        branch: CONFIG.BRANCH
+      })
+    });
+    if (!res.ok) throw new Error('Delete failed');
+    alert('✅ ဖျက်ပြီးပါပြီ');
+    loadList();
+  } catch(e) {
+    alert('❌ Error: ' + e.message);
+  }
+}
+
+function showStatus(type, msg) {
+  const s = document.getElementById('uploadStatus');
+  s.className = 'status show ' + type;
+  s.textContent = msg;
+}
+</script>
+</body>
+  </html>
